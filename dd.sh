@@ -252,7 +252,7 @@ wget --no-check-certificate -qO '/boot/linux' "http://$DebianMirror$DebianMirror
 
 [[ "$NEETSSL" -eq '1' ]] && {
   echo 'Downloading File "wget"!'
-  wget --no-check-certificate -qO '/boot/wget' "https://moeclub.org/get-wget_udeb_amd64"
+  wget --no-check-certificate -qO '/boot/wget' "https://raw.githubusercontent.com/sheeye/dd/master/wget_udeb_amd64.tar.gz"
   [[ $? -ne '0' ]] && echo 'Error:Download "wget" failed!' && exit 1
 }
 
