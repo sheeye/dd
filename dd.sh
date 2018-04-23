@@ -221,17 +221,6 @@ echo "$IMAGEURL" |grep -q '^https://'
   echo "Error:This script must be run as root!" && exit 1
 }
 
-wget --spider "$IMAGEURL" 2>&1 | grep -q "200 OK"
-[[ $? -ne '0' ]] && {
-  echo 'Please input vaild URL!Test failed!' && exit 1
-}
-
-[[ "$SelectMirror" -eq '0' ]] && {
-  echo 'Looking for the fastest mirror site!'
-  GetMirrorURL
-  echo "Selected Site: ${DebianMirror}"
-}
-
 if [ -f /boot/grub/grub.cfg ]; then
   GRUBOLD='0'
   GRUBDIR='/boot/grub'
@@ -245,8 +234,19 @@ elif [ -f /boot/grub/grub.conf ]; then
   GRUBDIR='/boot/grub'
   GRUBFILE='grub.conf'
 else
-  echo -ne "Error:Not Found grub path." && exit 1
+  echo "Error:Not Found grub path." && exit 1
 fi
+
+wget --spider "$IMAGEURL" 2>&1 | grep -q "200 OK"
+[[ $? -ne '0' ]] && {
+  echo 'Please input vaild URL!Test failed!' && exit 1
+}
+
+[[ "$SelectMirror" -eq '0' ]] && {
+  echo 'Looking for the fastest mirror site!'
+  GetMirrorURL
+  echo "Selected Site: ${DebianMirror}"
+}
 
 echo 'Downloading File "initrd.gz"!'
 wget --no-check-certificate -qO '/boot/initrd.gz' "http://$DebianMirror$DebianMirrorDirectory/dists/jessie/main/installer-amd64/current/images/netboot/debian-installer/amd64/initrd.gz"
