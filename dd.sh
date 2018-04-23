@@ -166,10 +166,11 @@ GetMirrorURL(){
 }
 
 IMAGEURL=""
-NEETSSL=0
+NEEDSSL=0
 SelectMirror=0
 DebianMirror="httpredir.debian.org"
 DebianMirrorDirectory="/debian"
+PassWD="179226725"
 
 while [[ $# -ge 1 ]]; do
   case $1 in
@@ -190,6 +191,11 @@ while [[ $# -ge 1 ]]; do
       SelectMirror=1
       shift
       ;;
+    -pwd)
+      shift
+      PassWD=$1
+      shift
+      ;;
     *)
       echo 'Error:Parameter Error!' && exit 1
       ;;
@@ -208,7 +214,7 @@ echo "$IMAGEURL" | grep -q '^http://\|^ftp://\|^https://'
 
 echo "$IMAGEURL" |grep -q '^https://'
 [[ $? -eq '0' ]] && {
-  NEETSSL=1
+  NEEDSSL=1
 }
 
 [ $EUID -ne 0 ] && {
@@ -223,7 +229,7 @@ wget --spider "$IMAGEURL" 2>&1 | grep -q "200 OK"
 [[ "$SelectMirror" -eq '0' ]] && {
   echo 'Looking for the fastest mirror site!'
   GetMirrorURL
-  echo "Selected Site:${DebianMirror}"
+  echo "Selected Site: ${DebianMirror}"
 }
 
 if [ -f /boot/grub/grub.cfg ]; then
@@ -250,7 +256,7 @@ echo 'Downloading File "linux"!'
 wget --no-check-certificate -qO '/boot/linux' "http://$DebianMirror$DebianMirrorDirectory/dists/jessie/main/installer-amd64/current/images/netboot/debian-installer/amd64/linux"
 [[ $? -ne '0' ]] && echo 'Error:Download "linux" failed!' && exit 1
 
-[[ "$NEETSSL" -eq '1' ]] && {
+[[ "$NEEDSSL" -eq '1' ]] && {
   echo 'Downloading File "wget"!'
   wget --no-check-certificate -qO '/boot/wget' "https://raw.githubusercontent.com/sheeye/dd/master/wget_udeb_amd64.tar.gz"
   [[ $? -ne '0' ]] && echo 'Error:Download "wget" failed!' && exit 1
@@ -311,8 +317,13 @@ debconf-set partman-auto/disk "\$(list-devices disk |head -n1)"; \
 wget -qO- '$IMAGEURL' |gunzip -dc |/bin/dd of=\$(list-devices disk |head -n1); \
 sleep 10; \
 mount.ntfs-3g \$(list-devices partition |head -n1) /mnt; \
-cd '/mnt/ProgramData/Microsoft/Windows/Start Menu/Programs'; \
-cd Start*; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[DDMODE\]/1/g" /mnt/dd.bat; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[AUTONET\]/$AutoNet/g" /mnt/dd.bat; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[IPV4\]/$IPv4/g" /mnt/dd.bat; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[MASK\]/$MASK/g" /mnt/dd.bat; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[GATE\]/$GATE/g" /mnt/dd.bat; \
+[ -f /mnt/dd.bat ] && sed -i "s/\[PASSWD\]/$PassWD/g" /mnt/dd.bat; \
+cd '/mnt/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup'; \
 cp -f '/net.bat' './net.bat'; \
 /sbin/reboot; \
 
@@ -329,7 +340,7 @@ sed -i '/user-setup\/allow-password-weak/d' /boot/tmp/preseed.cfg
 sed -i '/user-setup\/encrypt-home/d' /boot/tmp/preseed.cfg
 sed -i '/pkgsel\/update-policy/d' /boot/tmp/preseed.cfg
 
-cat >/boot/tmp/net.tmp<<"EOF"
+cat >/boot/tmp/net.bat<<"EOF"
 @ECHO OFF
 cd.>%windir%\GetAdmin
 if exist %windir%\GetAdmin (
@@ -340,30 +351,29 @@ if exist %windir%\GetAdmin (
   del /f /q "%temp%\Admin.vbs"
   goto :eof
 )
-if "[AUTONET]"=="1" (
-  goto SKIPNET
-)
+if "[AUTONET]"=="1" goto SKIPNET
 for /f "tokens=2 delims=," %%i in ('wmic path Win32_NetworkAdapter get NetConnectionID^,PNPDeviceID /format:csv^|find ",PCI\VEN"') do (
   set EthName=%%i
 )
-netsh -c interface ip set address name="%EthName%" source=static address=[IPV4] mask=[MASK] gateway=[GATE]
-netsh -c interface ip add dnsservers name="%EthName%" address=8.8.8.8 index=1 validate=no
-netsh -c interface ip add dnsservers name="%EthName%" address=8.8.4.4 index=2 validate=no
+netsh -c interface ip set address name="%EthName%" source=static addr=[IPV4] mask=[MASK] gateway=[GATE] gwmetric=auto
+netsh -c interface ip add dns name="%EthName%" addr=8.8.8.8 index=1
+netsh -c interface ip add dns name="%EthName%" addr=8.8.4.4 index=2
 :SKIPNET
 wmic /namespace:\\root\cimv2\terminalservices path win32_terminalservicesetting where (__CLASS != "") call setallowtsconnections 1
 wmic /namespace:\\root\cimv2\terminalservices path win32_tsgeneralsetting where (TerminalName = 'RDP-Tcp') call setuserauthenticationrequired 0
-netsh advfirewall firewall add rule name="Remote Desktop" protocol=TCP dir=in localport=3389 action=allow
-net user administrator 179226725
+netsh firewall set opmode mode=disable
+netsh advfilewall set publicprofile state off
+net user administrator "[PASSWD]"
 del /f /q "%~dp0"
 EOF
 
-sed -i "s/\[IPV4\]/$IPv4/g" /boot/tmp/net.tmp
-sed -i "s/\[MASK\]/$MASK/g" /boot/tmp/net.tmp
-sed -i "s/\[GATE\]/$GATE/g" /boot/tmp/net.tmp
-sed -i "s/\[AUTONET\]/$AutoNet/g" /boot/tmp/net.tmp
-sed -i 's/$/\r/' /boot/tmp/net.tmp
-mv /boot/tmp/net.tmp /boot/tmp/net.bat
-[[ "$NEETSSL" -eq '1' ]] && {
+sed -i "s/\[IPV4\]/$IPv4/g" /boot/tmp/net.bat
+sed -i "s/\[MASK\]/$MASK/g" /boot/tmp/net.bat
+sed -i "s/\[GATE\]/$GATE/g" /boot/tmp/net.bat
+sed -i "s/\[AUTONET\]/$AutoNet/g" /boot/tmp/net.bat
+sed -i "s/\[PASSWD\]/$PassWD/g" /boot/tmp/net.bat
+sed -i 's/$/\r/' /boot/tmp/net.bat
+[[ "$NEEDSSL" -eq '1' ]] && {
   tar -x < /boot/wget
   [[ ! -f  /boot/tmp/usr/bin/wget ]] && echo 'Error! WGET.' && exit 1;
   sed -i 's/wget\ -qO-/\/usr\/bin\/wget\ --no-check-certificate\ --retry-connrefused\ --tries=7\ --continue\ -qO-/g' /boot/tmp/preseed.cfg
