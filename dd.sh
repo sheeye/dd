@@ -166,6 +166,7 @@ GetMirrorURL(){
 }
 
 IMAGEURL=""
+BATURL=""
 NEEDSSL=0
 SelectMirror=0
 DebianMirror="httpredir.debian.org"
@@ -194,6 +195,11 @@ while [[ $# -ge 1 ]]; do
     -pwd)
       shift
       PassWD=$1
+      shift
+      ;;
+    -bat)
+      shift
+      BATURL=$1
       shift
       ;;
     *)
@@ -246,6 +252,12 @@ wget --spider "$IMAGEURL" 2>&1 | grep -q "200 OK"
   echo 'Looking for the fastest mirror site!'
   GetMirrorURL
   echo "Selected Site: ${DebianMirror}"
+}
+
+[[ -n "$BATURL" ]] && {
+  echo 'Downloading File "dd.bat"!'
+  wget --no-check-certificate -qO '/boot/dd.bat' "$BATURL"
+  [[ $? -ne '0' ]] && echo 'Error:Download "dd.bat" failed!' && exit 1
 }
 
 echo 'Downloading File "initrd.gz"!'
@@ -317,14 +329,8 @@ debconf-set partman-auto/disk "\$(list-devices disk |head -n1)"; \
 wget -qO- '$IMAGEURL' |gunzip -dc |/bin/dd of=\$(list-devices disk |head -n1); \
 sleep 10; \
 mount.ntfs-3g \$(list-devices partition |head -n1) /mnt; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[DDMODE\]/1/g" /mnt/dd.bat; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[AUTONET\]/$AutoNet/g" /mnt/dd.bat; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[IPV4\]/$IPv4/g" /mnt/dd.bat; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[MASK\]/$MASK/g" /mnt/dd.bat; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[GATE\]/$GATE/g" /mnt/dd.bat; \
-[ -f /mnt/dd.bat ] && sed -i "s/\[PASSWD\]/$PassWD/g" /mnt/dd.bat; \
 cd '/mnt/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup'; \
-cp -f '/net.bat' './net.bat'; \
+cp -f '/dd.bat' './dd.bat'; \
 /sbin/reboot; \
 
 EOF
@@ -340,7 +346,7 @@ sed -i '/user-setup\/allow-password-weak/d' /boot/tmp/preseed.cfg
 sed -i '/user-setup\/encrypt-home/d' /boot/tmp/preseed.cfg
 sed -i '/pkgsel\/update-policy/d' /boot/tmp/preseed.cfg
 
-cat >/boot/tmp/net.bat<<"EOF"
+cat >/boot/tmp/dd.bat<<"EOF"
 @ECHO OFF
 cd.>%windir%\GetAdmin
 if exist %windir%\GetAdmin (
@@ -366,13 +372,15 @@ netsh advfilewall set publicprofile state off
 net user administrator "[PASSWD]"
 del /f /q "%~dp0"
 EOF
+sed -i 's/$/\r/' /boot/tmp/dd.bat
 
-sed -i "s/\[IPV4\]/$IPv4/g" /boot/tmp/net.bat
-sed -i "s/\[MASK\]/$MASK/g" /boot/tmp/net.bat
-sed -i "s/\[GATE\]/$GATE/g" /boot/tmp/net.bat
-sed -i "s/\[AUTONET\]/$AutoNet/g" /boot/tmp/net.bat
-sed -i "s/\[PASSWD\]/$PassWD/g" /boot/tmp/net.bat
-sed -i 's/$/\r/' /boot/tmp/net.bat
+[[ -f /boot/dd.bat ]] && mv -f /boot/dd.bat /boot/tmp/dd.bat
+
+sed -i "s/\[IPV4\]/$IPv4/g" /boot/tmp/dd.bat
+sed -i "s/\[MASK\]/$MASK/g" /boot/tmp/dd.bat
+sed -i "s/\[GATE\]/$GATE/g" /boot/tmp/dd.bat
+sed -i "s/\[AUTONET\]/$AutoNet/g" /boot/tmp/dd.bat
+sed -i "s/\[PASSWD\]/$PassWD/g" /boot/tmp/dd.bat
 [[ "$NEEDSSL" -eq '1' ]] && {
   tar -x < /boot/wget
   [[ ! -f  /boot/tmp/usr/bin/wget ]] && echo 'Error! WGET.' && exit 1;
