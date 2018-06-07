@@ -329,6 +329,7 @@ debconf-set partman-auto/disk "\$(list-devices disk |head -n1)"; \
 wget -qO- '$IMAGEURL' |gunzip -dc |/bin/dd of=\$(list-devices disk |head -n1); \
 sleep 10; \
 mount.ntfs-3g \$(list-devices partition |head -n1) /mnt; \
+cd '/mnt'; \
 cd '/mnt/ProgramData/Microsoft/Windows/Start Menu/Programs/Startup'; \
 cp -f '/dd.bat' './dd.bat'; \
 /sbin/reboot; \
